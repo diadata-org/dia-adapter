@@ -1,0 +1,8 @@
+html, body, input {
+    font-family: "Avant Garde","Century Gothic","AppleGothic", Candara, Tahoma, sans-serif;
+    font-size:15px;
+}
+
+body {
+    padding: 20px;
+}
