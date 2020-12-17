@@ -10,7 +10,7 @@ import * as network from './near-api/network.js';
 import { randomBytes } from './near-api/tweetnacl/core/random.js';
 
 
-const CONTRACT_ID ="diversifying.pool.testnet"
+const CONTRACT_ID ="dia-sc.testnet"
 network.setCurrent("testnet")
 
 const StarDateTime = new Date()
@@ -19,9 +19,9 @@ let TotalRequests = 0 //total requests discovered
 let TotalRequestsResolved = 0 //total requests resolved
 let TotalRequestsResolvedWithErr = 0 //total requests resolved but with err instead of data
 
-//--------------------
-//Main Request Handler
-//--------------------
+//------------------------------------------
+//Main HTTP-Request Handler - stats server
+//------------------------------------------
 function appHandler(server: BareWebServer, urlParts: url.UrlWithParsedQuery, req: http.IncomingMessage, resp: http.ServerResponse) {
 
   //urlParts: the result of nodejs [url.parse] (http://nodejs.org/docs/latest/api/url.html)
@@ -61,46 +61,17 @@ function appHandler(server: BareWebServer, urlParts: url.UrlWithParsedQuery, req
 };
 
 //struct returned from get_account_info
-export type GetAccountInfoResult = {
-  account_id: string;
-  /// The available balance that can be withdrawn
-  available: string; //U128,
-  /// The amount of SKASH owned (computed from the shares owned)
-  skash: string; //U128,
-  /// The amount of rewards (rewards = total_staked - skash_amount) and (total_owned = skash + rewards)
-  unstaked: string; //U128,
-  /// The epoch height when the unstaked was requested
-  /// The fund will be locked for NUM_EPOCHS_TO_UNLOCK epochs
-  /// unlock epoch = unstaked_requested_epoch_height + NUM_EPOCHS_TO_UNLOCK 
-  unstaked_requested_epoch_height: string; //U64,
-  ///if env::epoch_height()>=account.unstaked_requested_epoch_height+NUM_EPOCHS_TO_UNLOCK
-  can_withdraw: boolean,
-  /// total amount the user holds in this contract: account.availabe + account.staked + current_rewards + account.unstaked
-  total: string; //U128,
-
-  //-- STATISTICAL DATA --
-  // User's statistical data
-  // These fields works as a car's "trip meter". The user can reset them to zero.
-  /// trip_start: (timpestamp in nanoseconds) this field is set at account creation, so it will start metering rewards
-  trip_start: string, //U64,
-  /// How many skashs the user had at "trip_start". 
-  trip_start_skash: string, //U128,
-  /// how much the user staked since trip start. always incremented
-  trip_accum_stakes: string, //U128,
-  /// how much the user unstaked since trip start. always incremented
-  trip_accum_unstakes: string, //U128,
-  /// to compute trip_rewards we start from current_skash, undo unstakes, undo stakes and finally subtract trip_start_skash
-  /// trip_rewards = current_skash + trip_accum_unstakes - trip_accum_stakes - trip_start_skash;
-  /// trip_rewards = current_skash + trip_accum_unstakes - trip_accum_stakes - trip_start_skash;
-  trip_rewards: string, //U128,
-}
-
-type DiaRequest = {
-  originatingContract: string;
-  requestId: string;
-  dataKey: string;
-  dataItem: string;
-  callbackMethod: string;
+export type PendingRequest = {
+  //the requesting contract
+  contract_account_id: string;
+  /// A request-id internal to requesting contract
+  request_id: string; //U128,
+  /// DIA API Key
+  data_key: string; 
+  ///DIA API Item
+  data_item: string;
+  /// cablack method to invoke with the data
+  callback: string; 
 }
 
 class ErrData {
@@ -108,6 +79,9 @@ class ErrData {
     public data:any = null;
 }
 
+//------------------------------
+//--  fetch api.diadata.org
+//------------------------------
 async function fetchDiaJson(endpointPlusParam:string) : Promise<ErrData> {
 
   let response:ErrData;
@@ -139,23 +113,24 @@ async function fetchDiaJson(endpointPlusParam:string) : Promise<ErrData> {
 // resolve a request by calling Dia api endpoint 
 // and then calling the originating contract with the data
 //-------------------------------------------------
-async function resolveDiaRequest(r: DiaRequest) {
+async function resolveDiaRequest(r: PendingRequest) {
+  console.log(r.contract_account_id, r.request_id, r.data_key, r.data_item)
   let result = new ErrData()
   TotalRequests++;
-  switch (r.dataKey) {
+  switch (r.data_key) {
     case "symbols":
       result = await fetchDiaJson("symbols")
       break;
     
     case "quote":
-      result = await fetchDiaJson("quotation/" + r.dataItem)
+      result = await fetchDiaJson("quotation/" + r.data_item)
       break;
 
     default:
-      result.err = "invalid data_key " + r.dataKey
+      result.err = "invalid data_key " + r.data_key
   }
   //always send result (err,data) to calling contract
-  console.log("near.call",r.originatingContract, r.callbackMethod, result, 100)
+  console.log("near.call",r.contract_account_id, r.callback, result, 200)
   //await near.call(r.originatingContract, r.callbackMethod, { err: err, data: data }, 100)
   TotalRequestsResolved++
   if (result.err) TotalRequestsResolvedWithErr++;
@@ -166,30 +141,18 @@ async function resolveDiaRequest(r: DiaRequest) {
 //-------------------------------------------------
 let seqId = 0;
 async function checkPending() {
-  const pendingReqCount = await near.view(CONTRACT_ID, "get_number_of_accounts", {})
+  const pendingReqCount = await near.view(CONTRACT_ID, "get_pending_requests_count", {})
   TotalPollingCalls++
   
   if (pendingReqCount > 0) {
   
-    const info: GetAccountInfoResult = await near.view(CONTRACT_ID, "get_account_info", { account_id: "asimov.testnet" })
+    const pendingRequests: PendingRequest[] = await near.view(CONTRACT_ID, "get_pending_requests", {})
     
-    console.log(info.account_id, info.available)
-    
-    let diaRequest:DiaRequest = {
-      originatingContract:"client.contract.testnet",
-      callbackMethod:"on_dia_result",
-      requestId : (seqId++).toString(),
-      dataKey: "quote",
-      dataItem: "BTC"
+    for(let r of pendingRequests){
+      await resolveDiaRequest(r)
+      //if resolved, remove pending from pending list in CONTRACT_ID
+      //await near.call(CONTRACT_ID,"remove_request",{originating_contract:diaRequest.originatingContract, requestId:diaRequest.requestId},50)
     }
-    if (TotalPollingCalls%2==0){ //test-mode, half the time call API "symbols"
-      diaRequest.dataKey = "symbols"
-      diaRequest.dataItem = "";
-    }
-
-    await resolveDiaRequest(diaRequest)
-    //if resolved, remove pending from pending list in CONTRACT_ID
-    //await near.call(CONTRACT_ID,"remove_request",{originating_contract:diaRequest.originatingContract, requestId:diaRequest.requestId},50)
   }
 
 
@@ -199,7 +162,7 @@ async function checkPending() {
 //Loops checking for pending requests in the SC and resolving them every 10 seconds
 //-----------------
 async function pollingLoop(){
-  //loop checking every 10secs if there are pending requests
+  //loop checking preiodically if there are pending requests
   try {
     await checkPending();
   }
@@ -216,7 +179,7 @@ async function pollingLoop(){
 //------------
 //We start a barebones minimal web server 
 //When a request arrives, it will call appHandler(urlParts, request, response)
-const server = new BareWebServer('public_html', appHandler, 8000)
+const server = new BareWebServer('public_html', appHandler, 7000)
 server.start();
 
 //check for pending requests in the SC and resolve them
