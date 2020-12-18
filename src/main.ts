@@ -6,10 +6,10 @@ import * as url from 'url';
 import { BareWebServer, respond_error } from './bare-web-server.js';
 import * as near from './near-api/near-rpc.js';
 import * as network from './near-api/network.js';
-import { randomBytes } from './near-api/tweetnacl/core/random.js';
 
 
-const GATEWAY_CONTRACT_ID ="contract.dia-sc.testnet"
+const CREDENTIALS_FILE = "../../.near-credentials/default/dia-oracles.testnet.json"
+const GATEWAY_CONTRACT_ID ="contract.dia-oracles.testnet"
 network.setCurrent("testnet")
 
 const StarDateTime = new Date()
@@ -130,7 +130,7 @@ async function resolveDiaRequest(r: PendingRequest) {
   }
   //always send result (err,data) to calling contract
   console.log("near.call",r.contract_account_id, r.callback, result, 200)
-  await near.call(r.contract_account_id, r.callback, { err: err, data: data }, 100,)
+  await near.call(r.contract_account_id, r.callback, result, credentials.account_id,credentials.private_key, 100)
   TotalRequestsResolved++
   if (result.err) TotalRequestsResolvedWithErr++;
 }
@@ -150,11 +150,9 @@ async function checkPending() {
     for(let r of pendingRequests){
       await resolveDiaRequest(r)
       //if resolved, remove pending from pending list in GATEWAY_CONTRACT_ID
-      await near.call(GATEWAY_CONTRACT_ID,"remove_request",{contract_id:r.contract_account_id, request_id:r.request_id},50)
+      await near.call(GATEWAY_CONTRACT_ID,"remove",{contract_id:r.contract_account_id, request_id:r.request_id},credentials.account_id,credentials.private_key,50)
     }
   }
-
-
 }
 
 //-----------------
@@ -171,6 +169,12 @@ async function pollingLoop(){
   //check again in 10 seconds
   setTimeout(pollingLoop, 10000)
 }
+
+//----------------------
+// Get signing credentials
+//-----------------------
+let credentialsString = fs.readFileSync(CREDENTIALS_FILE).toString();
+let credentials = JSON.parse(credentialsString)
 
 
 // -----------

@@ -1,14 +1,14 @@
 //const nearAPI = require('near-api-js');
-import {KeyPairEd25519} from "../near-api/utils/key-pair.js"
-import * as TX from "../near-api/transaction.js"
-import * as near from "../near-api/near-rpc.js"
+import {KeyPairEd25519} from "../../near-api/utils/key-pair.js"
+import * as TX from "../../near-api/transaction.js"
+import * as near from "../../near-api/near-rpc.js"
 
-const sha256 = require('js-sha256');
+import * as sha256 from 'js-sha256';
 
 import { getConfig } from './config.js'
 import BN from 'bn.js';
 
-import {serialize,base_decode} from "../near-api/utils/serialize.js"
+import {serialize,base_decode} from "../../near-api/utils/serialize.js"
 
 //import * as KP from "./keypair.js"
 //nearAPI.utils.key_pair = undefined;
