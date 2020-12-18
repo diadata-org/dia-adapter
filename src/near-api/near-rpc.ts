@@ -230,17 +230,17 @@ export const BN_ZERO = new BN("0")
 export const ONE_TGAS = new BN("1" + "0".repeat(12));
 export const ONE_NEAR = new BN("1" + "0".repeat(24));
 
-export function call_method(
+export function call(
     contractId: string,
     method: string,
     params: any,
     sender: string,
     privateKey: string,
-    gas: BN,
+    TGas: number,
     attachedAmount: number = 0): Promise<any> {
 
     return broadcast_tx_commit_actions(
-        [TX.functionCall(method, params, gas, ONE_NEAR.muln(attachedAmount))],
+        [TX.functionCall(method, params, ONE_TGAS.muln(TGas), ONE_NEAR.muln(attachedAmount))],
         sender, contractId, privateKey)
 }
 

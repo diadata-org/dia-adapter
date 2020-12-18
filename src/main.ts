@@ -1,16 +1,15 @@
-var path = require('path');
-var fs = require('fs');
+import * as path from 'path';
+import * as fs from 'fs';
 import * as http from 'http';
-import * as  url from 'url';
+import * as url from 'url';
 
-//import BareWebServer
 import { BareWebServer, respond_error } from './bare-web-server.js';
 import * as near from './near-api/near-rpc.js';
 import * as network from './near-api/network.js';
 import { randomBytes } from './near-api/tweetnacl/core/random.js';
 
 
-const CONTRACT_ID ="dia-sc.testnet"
+const GATEWAY_CONTRACT_ID ="contract.dia-sc.testnet"
 network.setCurrent("testnet")
 
 const StarDateTime = new Date()
@@ -131,7 +130,7 @@ async function resolveDiaRequest(r: PendingRequest) {
   }
   //always send result (err,data) to calling contract
   console.log("near.call",r.contract_account_id, r.callback, result, 200)
-  //await near.call(r.originatingContract, r.callbackMethod, { err: err, data: data }, 100)
+  await near.call(r.contract_account_id, r.callback, { err: err, data: data }, 100,)
   TotalRequestsResolved++
   if (result.err) TotalRequestsResolvedWithErr++;
 }
@@ -141,17 +140,17 @@ async function resolveDiaRequest(r: PendingRequest) {
 //-------------------------------------------------
 let seqId = 0;
 async function checkPending() {
-  const pendingReqCount = await near.view(CONTRACT_ID, "get_pending_requests_count", {})
+  const pendingReqCount = await near.view(GATEWAY_CONTRACT_ID, "get_pending_requests_count", {})
   TotalPollingCalls++
   
   if (pendingReqCount > 0) {
   
-    const pendingRequests: PendingRequest[] = await near.view(CONTRACT_ID, "get_pending_requests", {})
+    const pendingRequests: PendingRequest[] = await near.view(GATEWAY_CONTRACT_ID, "get_pending_requests", {})
     
     for(let r of pendingRequests){
       await resolveDiaRequest(r)
-      //if resolved, remove pending from pending list in CONTRACT_ID
-      //await near.call(CONTRACT_ID,"remove_request",{originating_contract:diaRequest.originatingContract, requestId:diaRequest.requestId},50)
+      //if resolved, remove pending from pending list in GATEWAY_CONTRACT_ID
+      await near.call(GATEWAY_CONTRACT_ID,"remove_request",{contract_id:r.contract_account_id, request_id:r.request_id},50)
     }
   }
 
