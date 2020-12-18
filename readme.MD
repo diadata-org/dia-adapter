@@ -7,7 +7,10 @@ Requests sent to `dia.oracles.near` within the NEAR blockchain, are periodically
 
 ## Example
 
-TODO - example code for a request quote-BTC request and example callback-response
+*server up and resolving request_id 104 and 105 from quote-client.dia-oracles.testnet, asking for a BTC quote. Image shows incoming request and NEAR callback to originating contract*
+
+![server up and resolving request_id 104 and 105 from quote-client.dia-oracles.testnet, asking for a BTC quote](docs/images/server-resolving.png)
+
 
 ## Technical details
 
@@ -33,7 +36,7 @@ The `dia-adapter server` is periodically polling the `dia.oracles.near` smart co
 
 ### Stats report
 
-Bedisdes servicig `dia.oracles.near` within the NEAR blockchain, this server exposes an HTTP endpoint in port 8000 to:
+Bedisdes servicig `dia.oracles.near` within the NEAR blockchain, this server exposes an HTTP endpoint in port 7000 to:
 * query current stats (requests retireve, serviced, with data, with error)
 * shutdown the process
 * keep-alive response for the process watchdog
@@ -47,7 +50,15 @@ TODO
 TODO
 
 ## Test
-TODO
+
+Start `node dist/main` in terminal 1. 
+
+Start `node dist/test/quote-make-request` in terminal 2.
+
+Terminal 2 asks a test contract to send a request to `dia-sc`, the server in terminal 1 gets the request by polling, gets the data via dia-API call and then callbacks the requsting contract with the data.
+
+You can navigate to localhost:7000 to check stats on the polling server in terminal 1.
+
 
 ## Watchdog process
 TODO
