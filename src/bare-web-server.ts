@@ -37,6 +37,7 @@ export class BareWebServer {
     wwwRoot: string
     appHandler: AppRequestHandlerFunction
 
+    // ---------------------------
     //    public function start( staticDir:string, aAppHandler:function, port)
     // ---------------------------
     //Start the web server
@@ -52,10 +53,12 @@ export class BareWebServer {
 
         //static files content handler
         this.httpServer = http.createServer(this.minimalHandler.bind(this));
+        this.httpServer.requestTimeout=10*1000
 
     }
 
     start() {
+        console.log(new Date())
         this.httpServer.listen(this.port);
         console.log("nodejs version: " + process.version + "\nBare Web Server listening on port " + this.port + "\nwwwRoot: " + this.wwwRoot);
     }
@@ -67,7 +70,7 @@ export class BareWebServer {
     minimalHandler(req: http.IncomingMessage, resp: http.ServerResponse) {
         try {
 
-            console.log('' + req.method + " " + req.url);
+            //console.log('' + req.method + " " + req.url);
 
             //parse request url. [url.parse] (http://nodejs.org/docs/latest/api/url.html)
             var urlParts = url.parse(req.url||"", true);
@@ -79,7 +82,7 @@ export class BareWebServer {
             }
 
             else {
-                this.respondWithFile(urlParts.pathname||"", resp);
+                this.endWithFile(urlParts.pathname||"", resp);
             };
 
         }
@@ -93,16 +96,16 @@ export class BareWebServer {
 
     //  helper function findPath(pathname) // return full path / undefined if not found
     // ---------------------------
-    findPath(pathname:string):string {
+    findPathAndFilename(url:string):string {
 
         let result:string;
         //console.log("findPath %s",pathname);
-        if (pathname === path.sep) {
+        if (url === path.sep) {
             result = this.wwwRoot;
         }
         else {
             //result = path.join(wwwRoot, pathname)
-            result = path.join(this.wwwRoot, pathname);
+            result = path.join(this.wwwRoot, url);
         };
 
         // check if file exists
@@ -118,13 +121,10 @@ export class BareWebServer {
     // ---------------------------
     //method writeFileContents(filename)
     // ---------------------------
-    writeFileContents(filename:string, resp:http.ServerResponse): boolean {
+    writeFileContents(filename:string, resp:http.ServerResponse) {
 
-        const fullPath = this.findPath(filename)
-        if (!fullPath){
-            respond_error(404,filename+" NOT FOUND",resp)   
-            return false;
-        }
+        const fullPath = this.findPathAndFilename(filename)
+        if (!fullPath) throw Error(filename+" NOT FOUND");
         // add headers
         //writeHeadersFor(path.extname(fullpath), resp);
 
@@ -137,11 +137,9 @@ export class BareWebServer {
     // -------------------
     // method respondWithFile(file)
     // ---------------------------
-    respondWithFile(file:string, resp:http.ServerResponse) {
-        if (this.writeFileContents(file,resp)) {
-            resp.end();
-        }
-        
+    endWithFile(file:string, resp:http.ServerResponse) {
+        this.writeFileContents(file,resp)
+        resp.end();
     }
 
 }

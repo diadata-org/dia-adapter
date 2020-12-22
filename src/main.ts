@@ -9,11 +9,11 @@ import * as network from './near-api/network.js';
 
 
 const CREDENTIALS_FILE = "../../.near-credentials/default/dia-oracles.testnet.json"
-const GATEWAY_CONTRACT_ID ="contract.dia-oracles.testnet"
+const GATEWAY_CONTRACT_ID = "contract.dia-oracles.testnet"
 network.setCurrent("testnet")
 
 const StarDateTime = new Date()
-let TotalPollingCalls=0
+let TotalPollingCalls = 0
 let TotalRequests = 0 //total requests discovered
 let TotalRequestsResolved = 0 //total requests resolved
 let TotalRequestsResolvedWithErr = 0 //total requests resolved but with err instead of data
@@ -23,39 +23,52 @@ let TotalRequestsResolvedWithErr = 0 //total requests resolved but with err inst
 //------------------------------------------
 function appHandler(server: BareWebServer, urlParts: url.UrlWithParsedQuery, req: http.IncomingMessage, resp: http.ServerResponse) {
 
+  resp.on("error", (err) => { console.error(err) })
+
   //urlParts: the result of nodejs [url.parse] (http://nodejs.org/docs/latest/api/url.html)
   //urlParts.query: the result of nodejs [querystring.parse] (http://nodejs.org/api/querystring.html)
 
-  if (urlParts.pathname === '/') {
-    //GET / (root) web server returns:
-    server.writeFileContents('index.html', resp);
-    resp.end();
-    return true;
-  }
+  try {
+    if (urlParts.pathname === '/favicon.ico') {
+      respond_error(404, "", resp)
+    }
+    else
+      if (urlParts.pathname === '/') {
+        //GET / (root) web server returns:
+        server.writeFileContents('index.html', resp);
+        resp.end();
+        return true;
+      }
 
-  else if (urlParts.pathname === '/stats') {
-    resp.end(`
-    <table>
-    <tr><td>Start</td><td>${StarDateTime.toString()}</td></tr>    
-    <tr><td>Total Polling Calls</td><td>${TotalPollingCalls}</td></tr>    
-    <tr><td>Total Requests Discovered</td><td>${TotalRequests}</td></tr>    
-    <tr><td>Total Requests Resolved</td><td>${TotalRequestsResolved}</td></tr>    
-    <tr><td> * with data</td><td>${TotalRequestsResolved-TotalRequestsResolvedWithErr}</td></tr>    
-    <tr><td> * with err</td><td>${TotalRequestsResolvedWithErr}</td></tr>    
-    </table>
-    `);
-
+      else if (urlParts.pathname === '/stats') {
+        resp.end(`
+          <table>
+          <tr><td>Start</td><td>${StarDateTime.toString()}</td></tr>    
+          <tr><td>Total Polling Calls</td><td>${TotalPollingCalls}</td></tr>    
+          <tr><td>Total Requests Discovered</td><td>${TotalRequests}</td></tr>    
+          <tr><td>Total Requests Resolved</td><td>${TotalRequestsResolved}</td></tr>    
+          <tr><td> * with data</td><td>${TotalRequestsResolved - TotalRequestsResolvedWithErr}</td></tr>    
+          <tr><td> * with err</td><td>${TotalRequestsResolvedWithErr}</td></tr>    
+          </table>
+          `);
+      }
+      else if (urlParts.pathname === '/ping') {
+        resp.end("pong");
+      }
+      else if (urlParts.pathname === '/shutdown') {
+        process.exit(1);
+      }
+      else {
+        respond_error(500, 'invalid path ' + urlParts.pathname, resp);
+      };
   }
-  else if (urlParts.pathname === '/ping') {
-    resp.end("pong");
+  catch (ex) {
+    try {
+      respond_error(505, ex.message, resp)
+    }
+    catch { }
+    console.log(ex)
   }
-  else if (urlParts.pathname === '/shutdown') {
-    process.exit(1);
-  }
-  else {
-    respond_error(500, 'invalid path ' + urlParts.pathname, resp);
-  };
-
   return true;
 };
 
@@ -66,39 +79,39 @@ export type PendingRequest = {
   /// A request-id internal to requesting contract
   request_id: string; //U128,
   /// DIA API Key
-  data_key: string; 
+  data_key: string;
   ///DIA API Item
   data_item: string;
   /// cablack method to invoke with the data
-  callback: string; 
+  callback: string;
 }
 
 class ErrData {
-    public err:string = "";
-    public data:any = null;
+  public err: string = "";
+  public data: any = null;
 }
 
 //------------------------------
 //--  fetch api.diadata.org
 //------------------------------
-async function fetchDiaJson(endpointPlusParam:string) : Promise<ErrData> {
+async function fetchDiaJson(endpointPlusParam: string): Promise<ErrData> {
 
-  let response:ErrData;
+  let response: ErrData;
 
-  const fullEndpoint = "https://api.diadata.org/v1/"+endpointPlusParam
+  const fullEndpoint = "https://api.diadata.org/v1/" + endpointPlusParam
   const fetchResult = await fetch(fullEndpoint)
-  let errGetJson:string="";
+  let errGetJson: string = "";
   let jsonData;
-  try{
+  try {
     jsonData = await fetchResult.json()
   }
-  catch(ex){
-    errGetJson= ex.message;
+  catch (ex) {
+    errGetJson = ex.message;
     jsonData = undefined;
   }
 
   if (!fetchResult.ok) throw Error(fullEndpoint + " " + fetchResult.status + " " + fetchResult.statusText)
-  if (!jsonData) throw Error(fullEndpoint + " ERR:EMPTY RESPONSE "+errGetJson)
+  if (!jsonData) throw Error(fullEndpoint + " ERR:EMPTY RESPONSE " + errGetJson)
   if (jsonData.errorcode) { //some error reported by the diadata server. e.g. unexistent coin
     throw Error(fullEndpoint + JSON.stringify(jsonData))
   }
@@ -120,7 +133,7 @@ async function resolveDiaRequest(r: PendingRequest) {
     case "symbols":
       result = await fetchDiaJson("symbols")
       break;
-    
+
     case "quote":
       result = await fetchDiaJson("quotation/" + r.data_item)
       break;
@@ -129,8 +142,8 @@ async function resolveDiaRequest(r: PendingRequest) {
       result.err = "invalid data_key " + r.data_key
   }
   //always send result (err,data) to calling contract
-  console.log("near.call",r.contract_account_id, r.callback, result, 200)
-  await near.call(r.contract_account_id, r.callback, result, credentials.account_id,credentials.private_key, 100)
+  console.log("near.call", r.contract_account_id, r.callback, result, 200)
+  await near.call(r.contract_account_id, r.callback, result, credentials.account_id, credentials.private_key, 100)
   TotalRequestsResolved++
   if (result.err) TotalRequestsResolvedWithErr++;
 }
@@ -142,15 +155,15 @@ let seqId = 0;
 async function checkPending() {
   const pendingReqCount = await near.view(GATEWAY_CONTRACT_ID, "get_pending_requests_count", {})
   TotalPollingCalls++
-  
+
   if (pendingReqCount > 0) {
-  
+
     const pendingRequests: PendingRequest[] = await near.view(GATEWAY_CONTRACT_ID, "get_pending_requests", {})
-    
-    for(let r of pendingRequests){
+
+    for (let r of pendingRequests) {
       await resolveDiaRequest(r)
       //if resolved, remove pending from pending list in GATEWAY_CONTRACT_ID
-      await near.call(GATEWAY_CONTRACT_ID,"remove",{contract_id:r.contract_account_id, request_id:r.request_id},credentials.account_id,credentials.private_key,50)
+      await near.call(GATEWAY_CONTRACT_ID, "remove", { contract_id: r.contract_account_id, request_id: r.request_id }, credentials.account_id, credentials.private_key, 50)
     }
   }
 }
@@ -158,13 +171,13 @@ async function checkPending() {
 //-----------------
 //Loops checking for pending requests in the SC and resolving them every 10 seconds
 //-----------------
-async function pollingLoop(){
+async function pollingLoop() {
   //loop checking preiodically if there are pending requests
   try {
     await checkPending();
   }
   catch (ex) {
-    console.error("ERR",ex.message)
+    console.error("ERR", ex.message)
   }
   //check again in 10 seconds
   setTimeout(pollingLoop, 10000)
