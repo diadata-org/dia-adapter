@@ -168,24 +168,10 @@ async function checkPending() {
   }
 }
 
-//-----------------
-//Loops checking for pending requests in the SC and resolving them every 10 seconds
-//-----------------
-async function pollingLoop() {
-  //loop checking preiodically if there are pending requests
-  try {
-    await checkPending();
-  }
-  catch (ex) {
-    console.error("ERR", ex.message)
-  }
-  //check again in 10 seconds
-  setTimeout(pollingLoop, 10000)
-}
-
 //----------------------
 // Get signing credentials
 //-----------------------
+console.log(process.cwd())
 let credentialsString = fs.readFileSync(CREDENTIALS_FILE).toString();
 let credentials = JSON.parse(credentialsString)
 
@@ -195,8 +181,36 @@ let credentials = JSON.parse(credentialsString)
 //------------
 //We start a barebones minimal web server 
 //When a request arrives, it will call appHandler(urlParts, request, response)
-const server = new BareWebServer('public_html', appHandler, 7000)
-server.start();
+const server = new BareWebServer('../public_html', appHandler, 7000)
+
+server.start()
 
 //check for pending requests in the SC and resolve them
 pollingLoop();
+
+//-----------------
+//Loops checking for pending requests in the SC every 10 seconds and resolving them 
+//-----------------
+let loopsExecuted=0;
+async function pollingLoop() {
+
+  //check if there are pending requests and resolve them
+  try {
+    await checkPending();
+  }
+  catch (ex) {
+    console.error("ERR", ex.message)
+  }
+
+  loopsExecuted++;
+  if (loopsExecuted>=2000) {
+    //2000 loops cycle finished- gracefully end process, pm2 will restart it
+    server.close()
+    return;
+  }
+  else {
+    //check again in 10 seconds
+    setTimeout(pollingLoop, 10000)
+  }
+
+}
