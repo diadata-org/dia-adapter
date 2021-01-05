@@ -4,19 +4,26 @@ import * as http from 'http';
 import * as url from 'url';
 
 import { BareWebServer, respond_error } from './bare-web-server.js';
+import { tail } from "./util/tail.js"
 import * as near from './near-api/near-rpc.js';
 import * as network from './near-api/network.js';
 
-
-const CREDENTIALS_FILE = "../../.near-credentials/default/dia-oracles.testnet.json"
-const GATEWAY_CONTRACT_ID = "contract.dia-oracles.testnet"
-network.setCurrent("testnet")
+const testMode = process.argv[2]=="test"
+network.setCurrent(testMode? "testnet":"mainnet")
+const MASTER_ACCOUNT = testMode? "dia-oracles.testnet": "dia-oracles.near"
+const GATEWAY_CONTRACT_ID = "contract."+MASTER_ACCOUNT;
 
 const StarDateTime = new Date()
 let TotalPollingCalls = 0
 let TotalRequests = 0 //total requests discovered
 let TotalRequestsResolved = 0 //total requests resolved
 let TotalRequestsResolvedWithErr = 0 //total requests resolved but with err instead of data
+
+
+//------------------------------------------
+function showWho(resp:http.ServerResponse){
+  resp.write(`<p>Network:<b>${network.current}</b> - contract: <b>${GATEWAY_CONTRACT_ID}</b></p>`)
+}
 
 //------------------------------------------
 //Main HTTP-Request Handler - stats server
@@ -34,14 +41,11 @@ function appHandler(server: BareWebServer, urlParts: url.UrlWithParsedQuery, req
     }
     else
       if (urlParts.pathname === '/') {
-        //GET / (root) web server returns:
-        server.writeFileContents('index.html', resp);
-        resp.end();
-        return true;
-      }
-
-      else if (urlParts.pathname === '/stats') {
-        resp.end(`
+        //GET / (root) web server returns stats
+        server.writeFileContents('index1-head.html', resp);
+        showWho(resp)
+        server.writeFileContents('index2-center.html', resp);
+        resp.write(`
           <table>
           <tr><td>Start</td><td>${StarDateTime.toString()}</td></tr>    
           <tr><td>Total Polling Calls</td><td>${TotalPollingCalls}</td></tr>    
@@ -51,11 +55,25 @@ function appHandler(server: BareWebServer, urlParts: url.UrlWithParsedQuery, req
           <tr><td> * with err</td><td>${TotalRequestsResolvedWithErr}</td></tr>    
           </table>
           `);
+        server.writeFileContents('index3-footer.html', resp);
+        resp.end();
+      }
+
+      else if (urlParts.pathname === '/log') {
+        server.writeFileContents('index1-head.html', resp);
+        showWho(resp)
+        server.writeFileContents('index2-center.html', resp);
+        resp.write("<pre>");
+        resp.write(tail("main.log"));
+        resp.write("</pre>");
+        server.writeFileContents('index3-footer.html', resp);
+        resp.end();
       }
       else if (urlParts.pathname === '/ping') {
         resp.end("pong");
       }
       else if (urlParts.pathname === '/shutdown') {
+        resp.end("shutdown");
         process.exit(1);
       }
       else {
@@ -86,7 +104,8 @@ export type PendingRequest = {
   callback: string;
 }
 
-class ErrData {
+class RequestResponseErrData {
+  public request_id: string = "";
   public err: string = "";
   public data: any = null;
 }
@@ -94,30 +113,28 @@ class ErrData {
 //------------------------------
 //--  fetch api.diadata.org
 //------------------------------
-async function fetchDiaJson(endpointPlusParam: string): Promise<ErrData> {
+async function fetchDiaJson(keyPlusParam: string): Promise<RequestResponseErrData> {
 
-  let response: ErrData;
+  let response = new RequestResponseErrData();
 
-  const fullEndpoint = "https://api.diadata.org/v1/" + endpointPlusParam
-  const fetchResult = await fetch(fullEndpoint)
-  let errGetJson: string = "";
-  let jsonData;
   try {
-    jsonData = await fetchResult.json()
+
+    const fullEndpoint = "https://api.diadata.org/v1/" + keyPlusParam
+
+    const fetchResult = await fetch(fullEndpoint)
+    const jsonData = await fetchResult.json()
+
+    if (!fetchResult.ok) throw Error(fullEndpoint + " " + fetchResult.status + " " + fetchResult.statusText)
+    if (!jsonData) throw Error(fullEndpoint + " ERR:EMPTY RESPONSE")
+    if (jsonData.errorcode) { //some error reported by the diadata server. e.g. unexistent coin
+      throw Error(fullEndpoint + " " + JSON.stringify(jsonData))
+    }
+    response.data = jsonData;
   }
-  catch (ex) {
-    errGetJson = ex.message;
-    jsonData = undefined;
+  catch(ex){
+    response.err = ex.message
   }
 
-  if (!fetchResult.ok) throw Error(fullEndpoint + " " + fetchResult.status + " " + fetchResult.statusText)
-  if (!jsonData) throw Error(fullEndpoint + " ERR:EMPTY RESPONSE " + errGetJson)
-  if (jsonData.errorcode) { //some error reported by the diadata server. e.g. unexistent coin
-    throw Error(fullEndpoint + JSON.stringify(jsonData))
-  }
-
-  response = new ErrData()
-  response.data = jsonData;
   return response
 }
 
@@ -126,34 +143,42 @@ async function fetchDiaJson(endpointPlusParam: string): Promise<ErrData> {
 // and then calling the originating contract with the data
 //-------------------------------------------------
 async function resolveDiaRequest(r: PendingRequest) {
+
   console.log(r.contract_account_id, r.request_id, r.data_key, r.data_item)
-  let result = new ErrData()
+
   TotalRequests++;
-  switch (r.data_key) {
-    case "symbols":
-      result = await fetchDiaJson("symbols")
-      break;
 
-    case "quote":
-      result = await fetchDiaJson("quotation/" + r.data_item)
-      break;
+  let keyAndParams = r.data_key;
+  if (r.data_item) keyAndParams = keyAndParams + "/" + r.data_item;
 
-    default:
-      result.err = "invalid data_key " + r.data_key
+  //try to gey DIADATA API response (err/data)
+  let response: RequestResponseErrData = await fetchDiaJson(keyAndParams)
+
+  //always send response (request_id,err,data) to calling contract
+  response.request_id = r.request_id;
+  console.log("RESPONDING: near.call", r.contract_account_id, r.callback, response, 200)
+
+  try {
+  await near.call(r.contract_account_id, r.callback, response, credentials.account_id, credentials.private_key, 100)
   }
-  //always send result (err,data) to calling contract
-  console.log("near.call", r.contract_account_id, r.callback, result, 200)
-  await near.call(r.contract_account_id, r.callback, result, credentials.account_id, credentials.private_key, 100)
+  catch(ex){
+    if (ex.message.indexOf("Panicked")) {
+      console.error(ex.message); //log and continue
+    }
+    else throw ex; //escalate
+  }
+  
   TotalRequestsResolved++
-  if (result.err) TotalRequestsResolvedWithErr++;
+  if (response.err) TotalRequestsResolvedWithErr++;
 }
 
-//-------------------------------------------------
+//------------------------------------------------------
 //check for pending requests in the SC and resolve them
-//-------------------------------------------------
-let seqId = 0;
+//------------------------------------------------------
 async function checkPending() {
+
   const pendingReqCount = await near.view(GATEWAY_CONTRACT_ID, "get_pending_requests_count", {})
+
   TotalPollingCalls++
 
   if (pendingReqCount > 0) {
@@ -161,9 +186,17 @@ async function checkPending() {
     const pendingRequests: PendingRequest[] = await near.view(GATEWAY_CONTRACT_ID, "get_pending_requests", {})
 
     for (let r of pendingRequests) {
-      await resolveDiaRequest(r)
-      //if resolved, remove pending from pending list in GATEWAY_CONTRACT_ID
-      await near.call(GATEWAY_CONTRACT_ID, "remove", { contract_id: r.contract_account_id, request_id: r.request_id }, credentials.account_id, credentials.private_key, 50)
+      try {
+        //try to resolve this request
+        await resolveDiaRequest(r)
+        //if resolved, remove request from pending list in GATEWAY_CONTRACT_ID
+        console.log("REMOVE REQUEST",r.contract_account_id,r.request_id)
+        await near.call(GATEWAY_CONTRACT_ID, "remove", { contract_id: r.contract_account_id, request_id: r.request_id }, credentials.account_id, credentials.private_key, 50)
+      }
+      catch(ex){
+        //just log the error and try the next one
+        console.error("ERR", ex.message)
+      }
     }
   }
 }
@@ -172,6 +205,8 @@ async function checkPending() {
 // Get signing credentials
 //-----------------------
 console.log(process.cwd())
+const homedir = require('os').homedir()
+const CREDENTIALS_FILE = path.join(homedir,".near-credentials/default/"+MASTER_ACCOUNT+".json")
 let credentialsString = fs.readFileSync(CREDENTIALS_FILE).toString();
 let credentials = JSON.parse(credentialsString)
 
@@ -181,7 +216,8 @@ let credentials = JSON.parse(credentialsString)
 //------------
 //We start a barebones minimal web server 
 //When a request arrives, it will call appHandler(urlParts, request, response)
-const server = new BareWebServer('../public_html', appHandler, 7000)
+//we assuming cwd() == "/dist", so public_html is at ../public_html
+const server = new BareWebServer('../public_html', appHandler, 8000)
 
 server.start()
 

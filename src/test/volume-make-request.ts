@@ -11,7 +11,7 @@ network.setCurrent(testMode? "testnet":"mainnet")
 const MASTER_ACCOUNT = testMode? "dia-oracles.testnet": "dia-oracles.near"
 const GATEWAY_CONTRACT_ID = "contract."+MASTER_ACCOUNT;
 
-const TEST_CONTRACT_ID = "quote-test-client."+MASTER_ACCOUNT
+const TEST_CONTRACT_ID = "volume-test-client."+MASTER_ACCOUNT
 
 
 //-----------------
@@ -22,7 +22,7 @@ async function checkResult() {
     try {
         console.log("near.view", TEST_CONTRACT_ID, "get_callback_response")
         let result = await near.view(TEST_CONTRACT_ID, "get_callback_response", {})
-        if (result.request_id!==last_req_id) {
+        if (result.err || result.request_id!==last_req_id) {
             console.log("result:", JSON.stringify(result))
             last_req_id = result.request_id;
         }
@@ -32,13 +32,19 @@ async function checkResult() {
     }
 }
 
+function hoursAgoUnixTs(hours:number): number{
+    //https://api.diadata.org/v1/volume/BTC?starttime=1589829000&endtime=1589830000
+    return Math.trunc((Date.now()-hours*60*60*1000)/1000000)*1000;
+}
 //-----------------
 //Loops forcint the test contract to make a request to the gateway-contract
 //-----------------
 async function makeRequest() {
     try {
-        console.log("near.call", TEST_CONTRACT_ID, "make_request")
-        await near.call(TEST_CONTRACT_ID, "make_request", { data_key: "quote", data_item: "BTC" }, credentials.account_id, credentials.private_key, 100)
+        const dataItem= "BTC?starttime=" + hoursAgoUnixTs(200*24) + "&endtime=" + hoursAgoUnixTs(200*24-4)
+        //const dataItem= "BTC?starttime=1589829000&endtime=1589830000"
+        console.log("near.call", TEST_CONTRACT_ID, "make_request",dataItem)
+        await near.call(TEST_CONTRACT_ID, "make_request", { data_item: dataItem }, credentials.account_id, credentials.private_key, 100)
     }
     catch (ex) {
         console.error("ERR", ex.message)
