@@ -43,12 +43,23 @@ function appHandler(server: BareWebServer, urlParts: url.UrlWithParsedQuery, req
     if (urlParts.pathname === '/favicon.ico') {
       respond_error(404, "", resp)
     }
+    else if (urlParts.pathname === '/ping') {
+      resp.end("pong");
+    }
+    else if (urlParts.pathname === '/shutdown') {
+      resp.end("shutdown");
+      process.exit(1);
+    }
     else
-      if (urlParts.pathname === '/') {
-        //GET / (root) web server returns stats
-        server.writeFileContents('index1-head.html', resp, {hostname:hostname});
-        showWho(resp)
-        server.writeFileContents('index2-center.html', resp);
+      //GET some page, return HTML
+      //base header
+      server.writeFileContents('index1-head.html', resp, {hostname:hostname});
+      //config info
+      showWho(resp)
+      //base center
+      server.writeFileContents('index2-center.html', resp);
+      //GET / (root) adds stats
+      if (urlParts.pathname === '/') { //stats
         resp.write(`
           <table>
           <tr><td>Start</td><td>${StarDateTime.toString()}</td></tr>    
@@ -59,31 +70,21 @@ function appHandler(server: BareWebServer, urlParts: url.UrlWithParsedQuery, req
           <tr><td> * with err</td><td>${TotalRequestsResolvedWithErr}</td></tr>    
           </table>
           `);
-        server.writeFileContents('index3-footer.html', resp);
-        resp.end();
       }
-
+      //GET /log adds process log
       else if (urlParts.pathname === '/log') {
-        server.writeFileContents('index1-head.html', resp);
-        showWho(resp)
-        server.writeFileContents('index2-center.html', resp);
         resp.write("<pre>");
         resp.write(tail("main.log"));
         resp.write("</pre>");
         server.writeFileContents('index3-footer.html', resp);
-        resp.end();
-      }
-      else if (urlParts.pathname === '/ping') {
-        resp.end("pong");
-      }
-      else if (urlParts.pathname === '/shutdown') {
-        resp.end("shutdown");
-        process.exit(1);
       }
       else {
-        respond_error(500, 'invalid path ' + urlParts.pathname, resp);
-      };
-  }
+        resp.write(`<p>invalid path ${urlParts.pathname}</p>`);
+      }
+      //close </html> page
+      server.writeFileContents('index3-footer.html', resp);
+      resp.end();
+    }
   catch (ex) {
     try {
       respond_error(505, ex.message, resp)
