@@ -9,6 +9,8 @@ import { tail } from "./util/tail.js"
 import * as near from './near-api/near-rpc.js';
 import * as network from './near-api/network.js';
 
+const MONITORING_PORT=7001
+
 const hostname = os.hostname()
 const prodMode = process.argv[2]=="prod"
 network.setCurrent(prodMode? "mainnet":"testnet")
@@ -153,13 +155,14 @@ async function resolveDiaRequest(r: PendingRequest) {
   let keyAndParams = r.data_key;
   if (r.data_item) keyAndParams = keyAndParams + "/" + r.data_item;
 
-  //try to gey DIADATA API response (err/data)
+  //try to gey DIADATA API response (err,data)
   let response: RequestResponseErrData = await fetchDiaJson(keyAndParams)
 
   //always send response (request_id,err,data) to calling contract
   response.request_id = r.request_id;
   console.log("RESPONDING: near.call", r.contract_account_id, r.callback, response, 200)
 
+  //send response to originating contract by calling the callback
   try {
   await near.call(r.contract_account_id, r.callback, response, credentials.account_id, credentials.private_key, 100)
   }
@@ -191,7 +194,7 @@ async function checkPending() {
       try {
         //try to resolve this request
         await resolveDiaRequest(r)
-        //if resolved, remove request from pending list in GATEWAY_CONTRACT_ID
+        //once resolved, remove request from pending list in GATEWAY_CONTRACT_ID
         console.log("REMOVE REQUEST",r.contract_account_id,r.request_id)
         await near.call(GATEWAY_CONTRACT_ID, "remove", { contract_id: r.contract_account_id, request_id: r.request_id }, credentials.account_id, credentials.private_key, 50)
       }
@@ -216,11 +219,10 @@ let credentials = JSON.parse(credentialsString)
 // -----------
 //Start Server
 //------------
-//We start a barebones minimal web server 
+//We start a barebones minimal web server to monitor dia-adapter stats
 //When a request arrives, it will call appHandler(urlParts, request, response)
 //we assuming cwd() == "/dist", so public_html is at ../public_html
-const server = new BareWebServer('../public_html', appHandler, 8000)
-
+const server = new BareWebServer('../public_html', appHandler, MONITORING_PORT)
 server.start()
 
 //check for pending requests in the SC and resolve them
