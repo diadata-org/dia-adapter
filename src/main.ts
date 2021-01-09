@@ -212,9 +212,12 @@ async function checkPending() {
 console.log(process.cwd())
 const homedir = os.homedir()
 const CREDENTIALS_FILE = path.join(homedir,".near-credentials/default/"+MASTER_ACCOUNT+".json")
-let credentialsString = fs.readFileSync(CREDENTIALS_FILE).toString();
-let credentials = JSON.parse(credentialsString)
-
+try {
+  let credentialsString = fs.readFileSync(CREDENTIALS_FILE).toString();
+  let credentials = JSON.parse(credentialsString)
+} catch(ex){
+  console.error(ex.message);
+}
 
 // -----------
 //Start Server
