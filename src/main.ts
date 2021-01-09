@@ -183,6 +183,8 @@ async function resolveDiaRequest(r: PendingRequest) {
 //------------------------------------------------------
 async function checkPending() {
 
+  if (!credentials.private_key) throw Error("INVALID CREDENTIALS FILE")
+
   const pendingReqCount = await near.view(GATEWAY_CONTRACT_ID, "get_pending_requests_count", {})
 
   TotalPollingCalls++
@@ -238,6 +240,7 @@ pollingLoop();
 //-----------------
 let loopsExecuted=0;
 async function pollingLoop() {
+
 
   //check if there are pending requests and resolve them
   try {
