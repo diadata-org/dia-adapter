@@ -5,7 +5,8 @@ module.exports = {
     script: 'main.js',
     restart_delay: 1000,
     watch: 'main.js',
-    log_file: 'main.log',
+    out_file: 'main.log',
+    error_file: 'main.log',
     log_date_format: 'YYYY-MM-DD HH:mm:ss:SSS',
   }]
 };

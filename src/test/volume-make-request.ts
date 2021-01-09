@@ -41,7 +41,11 @@ function hoursAgoUnixTs(hours:number): number{
 //-----------------
 async function makeRequest() {
     try {
-        const dataItem= "BTC?starttime=" + hoursAgoUnixTs(200*24) + "&endtime=" + hoursAgoUnixTs(200*24-4)
+        let dataItem= "BTC?starttime=" + hoursAgoUnixTs(30*24) + "&endtime=" + hoursAgoUnixTs(29*24)
+        if (Math.random()>0.7) { 
+            //30% of the time, send bad parameters (inverted from-to)
+            dataItem= "BTC?starttime=" + hoursAgoUnixTs(200*24) + "&endtime=" + hoursAgoUnixTs(300*24)
+        }
         //const dataItem= "BTC?starttime=1589829000&endtime=1589830000"
         console.log("near.call", TEST_CONTRACT_ID, "make_request",dataItem)
         await near.call(TEST_CONTRACT_ID, "make_request", { data_item: dataItem }, credentials.account_id, credentials.private_key, 100)

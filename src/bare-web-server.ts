@@ -87,7 +87,8 @@ export class BareWebServer {
             }
 
             else {
-                this.endWithFile(urlParts.pathname||"", resp);
+                this.writeFileContents(urlParts.pathname||"", resp);
+                resp.end();
             };
 
         }
@@ -126,25 +127,30 @@ export class BareWebServer {
     // ---------------------------
     //method writeFileContents(filename)
     // ---------------------------
-    writeFileContents(filename:string, resp:http.ServerResponse) {
+    writeFileContents(filename:string, resp:http.ServerResponse, replaceData?:Record<string,any>) {
 
         const fullPath = this.findPathAndFilename(filename)
         if (!fullPath) throw Error(filename+" NOT FOUND");
         // add headers
         //writeHeadersFor(path.extname(fullpath), resp);
 
-        var file = fs.readFileSync(fullPath);
-        //send read file
-        resp.write(file);
+        var content = fs.readFileSync(fullPath);
+
+        if (replaceData){
+            let text = content.toString();
+            for(let key in replaceData){
+                let toReplace = "{{"+key+"}}"
+                while(text.indexOf(toReplace)>=0) text = text.replace(toReplace,replaceData[key]);
+            }
+            //send replaced template
+            resp.write(text);
+        }
+        else {
+            //send read file
+            resp.write(content);
+        }
     }
 
-    // -------------------
-    // method respondWithFile(file)
-    // ---------------------------
-    endWithFile(file:string, resp:http.ServerResponse) {
-        this.writeFileContents(file,resp)
-        resp.end();
-    }
 
 }
 

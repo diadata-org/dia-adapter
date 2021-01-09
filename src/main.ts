@@ -1,5 +1,6 @@
 import * as path from 'path';
 import * as fs from 'fs';
+import * as os from 'os';
 import * as http from 'http';
 import * as url from 'url';
 
@@ -8,9 +9,10 @@ import { tail } from "./util/tail.js"
 import * as near from './near-api/near-rpc.js';
 import * as network from './near-api/network.js';
 
-const testMode = process.argv[2]=="test"
-network.setCurrent(testMode? "testnet":"mainnet")
-const MASTER_ACCOUNT = testMode? "dia-oracles.testnet": "dia-oracles.near"
+const hostname = os.hostname()
+const prodMode = process.argv[2]=="prod"
+network.setCurrent(prodMode? "mainnet":"testnet")
+const MASTER_ACCOUNT = prodMode? "dia-oracles.near":"dia-oracles.testnet"
 const GATEWAY_CONTRACT_ID = "contract."+MASTER_ACCOUNT;
 
 const StarDateTime = new Date()
@@ -42,7 +44,7 @@ function appHandler(server: BareWebServer, urlParts: url.UrlWithParsedQuery, req
     else
       if (urlParts.pathname === '/') {
         //GET / (root) web server returns stats
-        server.writeFileContents('index1-head.html', resp);
+        server.writeFileContents('index1-head.html', resp, {hostname:hostname});
         showWho(resp)
         server.writeFileContents('index2-center.html', resp);
         resp.write(`
@@ -205,7 +207,7 @@ async function checkPending() {
 // Get signing credentials
 //-----------------------
 console.log(process.cwd())
-const homedir = require('os').homedir()
+const homedir = os.homedir()
 const CREDENTIALS_FILE = path.join(homedir,".near-credentials/default/"+MASTER_ACCOUNT+".json")
 let credentialsString = fs.readFileSync(CREDENTIALS_FILE).toString();
 let credentials = JSON.parse(credentialsString)
