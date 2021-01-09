@@ -12,9 +12,9 @@ import * as network from './near-api/network.js';
 const MONITORING_PORT=7001
 
 const hostname = os.hostname()
-const prodMode = process.argv[2]=="prod"
+const prodMode = false
 network.setCurrent(prodMode? "mainnet":"testnet")
-const MASTER_ACCOUNT = prodMode? "dia-oracles.near":"dia-oracles.testnet"
+const MASTER_ACCOUNT = prodMode? "dia.oracles.near":"dia.oracles.testnet"
 const GATEWAY_CONTRACT_ID = "contract."+MASTER_ACCOUNT;
 
 const StarDateTime = new Date()

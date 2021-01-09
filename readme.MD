@@ -18,7 +18,7 @@ This nodejs server is written in typescript.
 
 It polls requests by periodically calling `get_pending_requests_count()` and `get_pending_requests()`
 
-The requests to process have the followind information:
+The requests to process have the following information:
 
 * originating contract account id (String)
 * request id (U128)
@@ -28,7 +28,7 @@ The requests to process have the followind information:
 
 ### Request cycle
 
-The dia-adapter server is periodically polling the `contract.dia.oracles.near` smart contract by using `get_pending_requests()` and will react to pending requests by:
+The dia-adapter server is periodically polling the `contract.dia.oracles.near` smart contract by using `get_pending_requests()` and will react to requests by:
 * Query the corresponding DIA API endpoint for the data
 * Prepare and execute a NEAR transaction with a function call to the originating contract’s callback method, including the the contract-specific request ID, the data-key, data-item and the data information retrieved from the DIA API endpoint
 * The transaction will be signed by `dia.oracles.near` so the originating contract can verify the data source by controlling `env::signer_account_id` in the callback
@@ -36,11 +36,11 @@ The dia-adapter server is periodically polling the `contract.dia.oracles.near` s
 
 ### Stats report
 
-Bedisdes servicig `contract.dia.oracles.near` in the NEAR blockchain, this server also exposes an HTTP endpoint in port 8000 to:
-* query current server stats (requests retireved, serviced, with data, with error)
-* get server log
+Bedisdes servicig `contract.dia.oracles.near` in the NEAR blockchain, this server also exposes an HTTP endpoint (default port 7001) to:
+* show server stats (requests retrieved, serviced, with data, with error)
+* show server log
 * keep-alive response for the process watchdog
-* shutdown the process (will be restarted by pm2 in production)
+* shutdown the process (will be restarted by pm2)
 
 
 ## Testnet Deployment Instructions
@@ -50,7 +50,7 @@ Bedisdes servicig `contract.dia.oracles.near` in the NEAR blockchain, this serve
 
 ## Integration Test Instructions
 
-You need to have the server running and processing requests and also you need to simulate a client contract making a request. We will have tow terminals one for each function.
+You need to have the server running and processing requests and also you need to simulate a client contract making a request. We will have two terminals one for each function:
 
 * Start `node dist/main` in terminal 1. 
 
@@ -72,7 +72,14 @@ You can navigate to localhost:8000 to check stats on the polling server in termi
 * make sure the server has the MASTER_ACCOUNT credentials (check `~/.near-credentials/default`. You can use `near login` to get the credentials file generated)
 * in the repo dir type: `npm start`
 
+```
+> git clone https://github.com/Narwallets/dia-adapter.git
+> cd dia-adapter
+dia-adapter> npm install
+dia-adapter> npm start
+```
+
 The dia-adapter process will be run, and restarted when necessary by pm2.<br>
 The pm2 configuration is at [ecosystem.config.js](ecosystem.config.js)
 <br>
-Use http://localhost:8000 to check the dia-adapter process status.
+Use http://localhost:7001 to check the dia-adapter process status.
