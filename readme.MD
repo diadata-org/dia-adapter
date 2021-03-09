@@ -45,7 +45,7 @@ Bedisdes servicig `contract.dia.oracles.near` in the NEAR blockchain, this serve
 
 ## Testnet Deployment Instructions
 
-* You must deploy the [main contract](https://github.com/diadata-org/dia-sc) and client-test contracts in testnet
+* You must deploy the [main contract](https://github.com/diadata-org/near-contracts) and client-test contracts in testnet
 * make sure the dia-adapter server code is referencing your NEAR master account  (see MASTER_ACCOUNT & GATEWAY_CONTRACT_ID at [main.ts](src/main.ts))
 
 ## Integration Test Instructions
@@ -65,7 +65,7 @@ You can navigate to localhost:8000 to check stats on the polling server in termi
 
 ## Production Deployment Instructions
 
-* You must deploy the [main contract](https://github.com/diadata-org/dia-sc) in NEAR mainnet
+* You must deploy the [main contract](https://github.com/diadata-org/near-contracts) in NEAR mainnet
 * You need to have [pm2 installed](https://github.com/Unitech/pm2) in your server
 * `git clone/pull` this repo in your server
 * make sure the dia-adapter server code is referencing your NEAR master account  (see MASTER_ACCOUNT & GATEWAY_CONTRACT_ID at [main.ts](src/main.ts))
