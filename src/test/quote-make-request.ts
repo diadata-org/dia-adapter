@@ -8,7 +8,7 @@ import * as network from '../near-api/network.js';
 
 const testMode = true
 network.setCurrent(testMode? "testnet":"mainnet")
-const MASTER_ACCOUNT = testMode? "dia-oracles.testnet": "dia-oracles.near"
+const MASTER_ACCOUNT = testMode? "dia-test.testnet": "dia-oracles.near"
 const GATEWAY_CONTRACT_ID = "contract."+MASTER_ACCOUNT;
 
 const TEST_CONTRACT_ID = "quote-test-client."+MASTER_ACCOUNT
@@ -38,7 +38,7 @@ async function checkResult() {
 async function makeRequest() {
     try {
         console.log("near.call", TEST_CONTRACT_ID, "make_request")
-        await near.call(TEST_CONTRACT_ID, "make_request", { data_key: "quote", data_item: "BTC" }, credentials.account_id, credentials.private_key, 100)
+        await near.call(TEST_CONTRACT_ID, "make_request", { data_key: "quote", data_item: "DIA" }, credentials.account_id, credentials.private_key, 100)
     }
     catch (ex) {
         console.error("ERR", ex.message)

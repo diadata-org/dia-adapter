@@ -7,9 +7,9 @@ Requests sent to `contract.dia.oracles.near` within the NEAR blockchain, are per
 
 ## Example
 
-*server up and resolving request_id 104 and 105 from quote-client.dia-oracles.testnet, asking for a BTC quote. Image shows incoming request and NEAR callback to originating contract*
+*server up and resolving request_id 104 and 105 from quote-test-client.dia-test.testnet, asking for a DIA quote. Image shows incoming request and NEAR callback to originating contract*
 
-![server up and resolving request_id 104 and 105 from quote-client.dia-oracles.testnet, asking for a BTC quote](docs/images/server-resolving.png)
+![server up and resolving request_id 104 and 105 from quote-test-client.dia-test.testnet, asking for a DIA quote](docs/images/server-resolving.png)
 
 
 ## Technical details
@@ -45,27 +45,27 @@ Bedisdes servicig `contract.dia.oracles.near` in the NEAR blockchain, this serve
 
 ## Testnet Deployment Instructions
 
-* You must deploy the [main contract](https://github.com/Narwallets/dia-sc) and client-test contracts in testnet
+* You must deploy the [main contract](https://github.com/diadata-org/dia-sc) and client-test contracts in testnet
 * make sure the dia-adapter server code is referencing your NEAR master account  (see MASTER_ACCOUNT & GATEWAY_CONTRACT_ID at [main.ts](src/main.ts))
 
 ## Integration Test Instructions
 
 You need to have the server running and processing requests and also you need to simulate a client contract making a request. We will have two terminals one for each function:
 
+* Run `npm install` and `npm run build`
 * Start `node dist/main` in terminal 1. 
-
 * Start `node dist/test/quote-make-request` in terminal 2.
 
 Terminal 1 has the server running in test mode.
 
-Terminal 2 asks a test contract to send a request to `contract.dia-oracles.testnet`, the server in terminal 1 gets the request by polling, gets the data via dia-API call and then callbacks the requsting contract with the data.
+Terminal 2 asks a test contract to send a request to `contract.dia-test.testnet`, the server in terminal 1 gets the request by polling, gets the data via dia-API call and then callbacks the requsting contract with the data.
 
 You can navigate to localhost:8000 to check stats on the polling server in terminal 1.
 
 
 ## Production Deployment Instructions
 
-* You must deploy the [main contract](https://github.com/Narwallets/dia-sc) in NEAR mainnet
+* You must deploy the [main contract](https://github.com/diadata-org/dia-sc) in NEAR mainnet
 * You need to have [pm2 installed](https://github.com/Unitech/pm2) in your server
 * `git clone/pull` this repo in your server
 * make sure the dia-adapter server code is referencing your NEAR master account  (see MASTER_ACCOUNT & GATEWAY_CONTRACT_ID at [main.ts](src/main.ts))
@@ -73,7 +73,7 @@ You can navigate to localhost:8000 to check stats on the polling server in termi
 * in the repo dir type: `npm start`
 
 ```
-> git clone https://github.com/Narwallets/dia-adapter.git
+> git clone https://github.com/diadata-org/dia-adapter.git
 > cd dia-adapter
 dia-adapter> npm install
 dia-adapter> npm start

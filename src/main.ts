@@ -14,7 +14,7 @@ const MONITORING_PORT=7001
 const hostname = os.hostname()
 const prodMode = false
 network.setCurrent(prodMode? "mainnet":"testnet")
-const MASTER_ACCOUNT = prodMode? "dia.oracles.near":"dia.oracles.testnet"
+const MASTER_ACCOUNT = prodMode? "dia.oracles.near":"dia-test.testnet"
 const GATEWAY_CONTRACT_ID = "contract."+MASTER_ACCOUNT;
 
 const StarDateTime = new Date()
