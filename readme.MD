@@ -1,8 +1,8 @@
 # DIA-NEAR-adapter
 
-The dia-near adapter is a server process dedicated to fulfill requests posted on the smart contract `contract.dia.oracles.near` in the NEAR blockchain
+The dia-near adapter is a server process dedicated to fulfill requests posted on the smart contract `contract.dia-test.testnet` in the NEAR blockchain
 
-Requests sent to `contract.dia.oracles.near` within the NEAR blockchain, are periodically polled, the data retrieved from [DIA endpoints](diadata.org), and then sent back to the contract requesting the data by a call to the specified callback function. e.g.
+Requests sent to `contract.dia-test.testnet` within the NEAR blockchain, are periodically polled, the data retrieved from [DIA endpoints](diadata.org), and then sent back to the contract requesting the data by a call to the specified callback function. e.g.
 `near call [requestring-contract-account-id] [callback-method] { "err":"", "data":[dia-api-call-result] }`
 
 ## Example
@@ -28,15 +28,15 @@ The requests to process have the following information:
 
 ### Request cycle
 
-The dia-adapter server is periodically polling the `contract.dia.oracles.near` smart contract by using `get_pending_requests()` and will react to requests by:
+The dia-adapter server is periodically polling the `contract.dia-test.testnet` smart contract by using `get_pending_requests()` and will react to requests by:
 * Query the corresponding DIA API endpoint for the data
 * Prepare and execute a NEAR transaction with a function call to the originating contract’s callback method, including the the contract-specific request ID, the data-key, data-item and the data information retrieved from the DIA API endpoint
-* The transaction will be signed by `dia.oracles.near` so the originating contract can verify the data source by controlling `env::signer_account_id` in the callback
+* The transaction will be signed by `dia-test.testnet` so the originating contract can verify the data source by controlling `env::signer_account_id` in the callback
 * `dia-adapter` records the request contract+ID as serviced and calls `remove()` to remove the request from the pending requests list
 
 ### Stats report
 
-Bedisdes servicig `contract.dia.oracles.near` in the NEAR blockchain, this server also exposes an HTTP endpoint (default port 7001) to:
+Bedisdes servicig `contract.dia-test.testnet` in the NEAR blockchain, this server also exposes an HTTP endpoint (default port 7001) to:
 * show server stats (requests retrieved, serviced, with data, with error)
 * show server log
 * keep-alive response for the process watchdog
